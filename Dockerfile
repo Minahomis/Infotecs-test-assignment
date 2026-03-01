@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y make gcovr lcov gcc git libpcre3-dev zl
     && mkdir -p /artefacts /coverage /reports
 
 COPY start_nginx.sh .
-RUN chmod +x start_nginx.sh && ./start_nginx.sh
+ARG build_type
+RUN chmod +x start_nginx.sh && ./start_nginx.sh $build_type
 
 CMD ["tail", "-f", "/dev/null"]
 # На будующее, сменить права пользователя
