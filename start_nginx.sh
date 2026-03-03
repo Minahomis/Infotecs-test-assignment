@@ -1,28 +1,20 @@
 #!/bin/bash
-#Заменить if else на switch case
 
-echo "Тип сборки: $1"
 BUILD_TYPE="$1"
+HISTORY_FILE="$2" 
+DATE_TIME=$(date +"%Y-%m-%d_%H-%M-%S")
 
+echo "Тип сборки: $BUILD_TYPE"
 git clone --progress https://github.com/nginx/nginx.git
 cd nginx/
-# Release version. Strip binary and -o3
-# Release vervion работает! sleep 5 нужен, так как иначе strip начинает выполняться еще до того, как файл /usr/local/nginx/sbin/nginx полностью сбилдиться
-#if $1 = release; then
 
-#    ./auto/configure --with-cc-opt="-O3"
-#    make install
-#    make
-#    sleep 5s
-#    strip /usr/local/nginx/sbin/nginx
-#elif $1 = debug; then
-#    ./auto/configure --with-debug --with-cc-opt="-O2"
-#    make install
-#else
-#    echo "Coverage development"
-#fi
-
-#Coverage 
+# переменные для report  
+GIT_REVISION=$(git rev-parse --short HEAD)  # короткий SHA коммита
+GIT_TAG=$(git describe --tags --always)     # человеко-читаемая форма
+REVISION="${GIT_TAG}_${GIT_REVISION}"      # пример: v1.2.3_a1b2c3d
+LAST_RUN=$(ls -1 /history/build_report_*.txt 2>/dev/null | wc -l)
+RUN_NUMBER=$((LAST_RUN + 1))
+CUR_COVERAGE="N/A"
 
 case "$BUILD_TYPE" in
 
@@ -33,6 +25,11 @@ case "$BUILD_TYPE" in
         make
         sleep 5
         strip /usr/local/nginx/sbin/nginx
+
+        ARTIFACT="/artefacts/nginx_${BUILD_TYPE}_r${REVISION}_${DATE_TIME}.tar.gz"
+        tar czf "$ARTIFACT" ./objs
+        echo "Артефакт сохранён: $ARTIFACT"
+        # Sleep 5 нужен, так как иначе strip начинает выполняться еще до того, как файл /usr/local/nginx/sbin/nginx полностью сбилдиться
         ;;
 
     debug)
@@ -40,6 +37,9 @@ case "$BUILD_TYPE" in
         ./auto/configure --with-debug --with-cc-opt="-O2 -g"
         make install
         make
+        ARTIFACT="/artefacts/nginx_${BUILD_TYPE}_r${REVISION}_${DATE_TIME}.tar.gz"
+        tar czf "$ARTIFACT" ./objs
+        echo "Артефакт сохранён: $ARTIFACT"
         ;;
 
     coverage)
@@ -71,15 +71,14 @@ case "$BUILD_TYPE" in
         SUMMARY=$(lcov --summary coverage.info 2>/dev/null)
         FUNC_COVERAGE=$(echo "$SUMMARY" | grep "functions" | awk '{print $2}')
 
-        DATE_TIME=$(date +"%Y-%m-%d_%H-%M-%S")
         RESULT_FILE="/coverage/result_test-${DATE_TIME}.txt"
         echo "Function coverage: $FUNC_COVERAGE" > "$RESULT_FILE"
         echo "Отчёт сохранён: $RESULT_FILE"
 
 
-         # --- Определяем предыдущий запуск по временной метке ---
+         # Определяем предыдущий запуск по временной метке
         PREV_FILE=$(ls -1t /coverage/result_test-*.txt 2>/dev/null | grep -v "$RESULT_FILE" | head -n1)
-
+        # Расчёт больше или меньше % покрытия
         if [ -n "$PREV_FILE" ]; then
             PREV_COVERAGE=$(cat "$PREV_FILE" | awk '{print $3}' | sed 's/%//')
             CUR_COVERAGE=$(echo "$FUNC_COVERAGE" | sed 's/%//')
@@ -92,7 +91,7 @@ case "$BUILD_TYPE" in
             else
                 echo "Сборка успешна."
 
-                ARTIFACT="/artefacts/nginx_build_${DATE_TIME}.tar.gz"
+                ARTIFACT="/artefacts/nginx_${BUILD_TYPE}_r${REVISION}_${DATE_TIME}.tar.gz"
                 tar czf "$ARTIFACT" ./objs
                 echo "Артефакт сохранён: $ARTIFACT"
             fi
@@ -105,4 +104,15 @@ case "$BUILD_TYPE" in
         exit 1
         ;;
 esac
+
+#Запись истории
+
+{
+    echo "Номер запуска: $RUN_NUMBER"
+    echo "Уникальный номер ревизии: $REVISION"
+    echo "Тип сборки: $BUILD_TYPE"
+    echo "Значение покрытия: $CUR_COVERAGE"
+} >> "$HISTORY_FILE" 2>/dev/null || echo "ОШИБКА ЗАПИСИ В $HISTORY_FILE (код $?)"
+
+echo "Сборка завершена, история сохранена: $HISTORY_FILE"
 

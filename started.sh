@@ -19,16 +19,19 @@ case "$BUILD_TYPE" in
 esac
 
 # Сборка образа если нет
-if ! sudo docker image inspect nginx:last-test > /dev/null 2>&1; then
+if ! docker image inspect nginx:last-test > /dev/null 2>&1; then
     echo "Образ отсутствует — выполняется сборка"
-    sudo docker build -t nginx:last-test .
+    docker build -t nginx:last-test .
 else
     echo "Образ существует — будет запущен контейнер"
 fi
 
-# Запуск контейнера и передача BUILD_TYPE
-    sudo docker run --rm \
+# Запуск контейнера и передача BUILD_TYPE и HISTORY_FILE
+DATE_TIME=$(date +"%Y-%m-%d_%H-%M-%S")
+HISTORY_FILE_CONTAINER="/reports/build_report_${DATE_TIME}.txt"
+
+    docker run --rm \
         -v "$(pwd)/coverage_reports:/coverage" \
         -v "$(pwd)/artefacts:/artefacts" \
         -v "$(pwd)/history:/reports" \
-        nginx:last-test "$BUILD_TYPE"
+        nginx:last-test "$BUILD_TYPE" "/reports/build_report_${DATE_TIME}.txt"
