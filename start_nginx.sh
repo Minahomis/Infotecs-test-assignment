@@ -11,9 +11,8 @@ cd nginx/
 # переменные для report  
 GIT_REVISION=$(git rev-parse --short HEAD)  # короткий SHA коммита
 GIT_TAG=$(git describe --tags --always)     # человеко-читаемая форма
-REVISION="${GIT_TAG}_${GIT_REVISION}"      # пример: v1.2.3_a1b2c3d
-LAST_RUN=$(ls -1 /history/build_report_*.txt 2>/dev/null | wc -l)
-RUN_NUMBER=$((LAST_RUN + 1))
+REVISION="${GIT_TAG}_${GIT_REVISION}"      
+RUN_NUMBER="${RUN_NUMBER:-1}"
 CUR_COVERAGE="N/A"
 
 case "$BUILD_TYPE" in
@@ -112,7 +111,7 @@ esac
     echo "Уникальный номер ревизии: $REVISION"
     echo "Тип сборки: $BUILD_TYPE"
     echo "Значение покрытия: $CUR_COVERAGE"
-} >> "$HISTORY_FILE" 2>/dev/null || echo "ОШИБКА ЗАПИСИ В $HISTORY_FILE (код $?)"
+} > "$HISTORY_FILE" 2>/dev/null || echo "ОШИБКА ЗАПИСИ В $HISTORY_FILE (код $?)"
 
 echo "Сборка завершена, история сохранена: $HISTORY_FILE"
 
